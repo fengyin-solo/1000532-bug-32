@@ -30,6 +30,24 @@ def list_entries(
     return PageResult(items=items, total=total, page=page, size=size)
 
 
+@router.get("/{entry_id}/hydro-references")
+def hydro_references(entry_id: int) -> dict[str, Any]:
+    """钻孔引用页：列出该钻孔上的水文观测点，跨组引用标记为共享并回填转组结论。
+
+    归属与结论字段直接取自观测台账投影，与台账、工作台三处口径始终统一。
+    """
+    entry = service.get_entry(entry_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"钻孔 {entry_id} 不存在或已归档")
+    from app.services.access import access
+
+    return {
+        "钻孔编号": entry.get("钻孔编号"),
+        "项目组": entry.get("项目组", ""),
+        "共享水文引用": entry.get("共享水文引用", []),
+    }
+
+
 @router.get("/{entry_id}", response_model=dict)
 def get_entry(entry_id: int) -> dict:
     """读取单条钻孔明细；不存在时给出可读的错误说明。"""

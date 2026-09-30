@@ -10,9 +10,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routers import ROUTERS
+from app.services.access import access
 from app.store import store
 
 app = FastAPI(title="地质勘探数据管理平台", version="1.0.0")
+
+
+@app.on_event("startup")
+def bootstrap_ownership() -> None:
+    """启动补数：存量无归属水文点按采集顺序补归属，并建好工作台/钻孔引用投影。"""
+    access.hydrate()
 
 app.add_middleware(
     CORSMiddleware,

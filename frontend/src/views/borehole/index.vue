@@ -47,6 +47,7 @@
             >
               {{ action }}
             </button>
+            <button class="link" type="button" @click="openReferences(row)">水文引用</button>
           </td>
         </tr>
         <tr v-if="!rows.length">
@@ -59,6 +60,40 @@
       <span>共 {{ total }} 条钻孔编录记录</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
     </footer>
+
+    <div v-if="refsPanel" class="drawer-mask" @click.self="refsPanel = null">
+      <aside class="drawer">
+        <header class="drawer-head">
+          <h3>钻孔引用页 · {{ refsPanel.钻孔编号 }}</h3>
+          <button class="btn ghost" type="button" @click="refsPanel = null">关闭</button>
+        </header>
+        <p class="form-hint">
+          钻孔属组：<strong>{{ store.groupName(refsPanel.项目组) }}</strong>。跨组水文点以共享引用展示，
+          归属与转组结论均回填自观测台账，三处口径统一。
+        </p>
+        <table class="data-table compact">
+          <thead>
+            <tr><th>观测编号</th><th>观测类型</th><th>归属项目组</th><th>引用性质</th><th>转组结论</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="(ref, idx) in refsPanel.共享水文引用" :key="idx">
+              <td>{{ ref.观测编号 }}</td>
+              <td>{{ ref.观测类型 || '—' }}</td>
+              <td>{{ store.groupName(ref.项目组) }}</td>
+              <td>
+                <span :class="ref.跨组共享 ? 'tag shared' : 'tag own'">
+                  {{ ref.跨组共享 ? '跨组共享' : '本组' }}
+                </span>
+              </td>
+              <td>{{ ref.转组结论 || '—' }}</td>
+            </tr>
+            <tr v-if="!refsPanel.共享水文引用.length">
+              <td colspan="5" class="empty-state">该钻孔暂无水文观测引用</td>
+            </tr>
+          </tbody>
+        </table>
+      </aside>
+    </div>
   </section>
 </template>
 
@@ -66,9 +101,19 @@
 import { onMounted, ref } from 'vue'
 
 import { request } from '@/api/client'
+import { useSessionStore } from '@/stores/session'
 
 type Row = Record<string, string | number | null>
+type HydroRef = {
+  观测编号: string
+  观测类型: string
+  项目组: string
+  跨组共享: boolean
+  转组结论: string
+}
+type RefsPanel = { 钻孔编号: string; 项目组: string; 共享水文引用: HydroRef[] }
 
+const store = useSessionStore()
 const ENDPOINT = '/api/borehole'
 const columns = ["钻孔编号", "勘探区", "孔口坐标", "设计孔深", "终孔深度", "开孔日期", "终孔日期", "钻孔状态"]
 const actions = ["开始钻进", "登记终孔", "执行封孔"]
@@ -80,6 +125,20 @@ const total = ref(0)
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
+const refsPanel = ref<RefsPanel | null>(null)
+
+async function openReferences(row: Row) {
+  errorMessage.value = ''
+  try {
+    const response = await request(`${ENDPOINT}/${row.id}/hydro-references`)
+    if (!response.ok) {
+      throw new Error('钻孔引用读取失败')
+    }
+    refsPanel.value = (await response.json()) as RefsPanel
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '钻孔引用读取失败'
+  }
+}
 
 function resetFilters() {
   filters.value = {}
@@ -128,3 +187,52 @@ async function reload() {
 
 onMounted(reload)
 </script>
+
+<style scoped>
+.drawer-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 50;
+}
+.drawer {
+  width: 720px;
+  max-width: 94vw;
+  height: 100%;
+  background: #fff;
+  padding: 20px 24px;
+  overflow-y: auto;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.12);
+}
+.drawer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.form-hint {
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 12px;
+}
+.compact {
+  font-size: 12px;
+}
+.tag {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+.tag.shared {
+  background: #fff7e6;
+  color: #d46b08;
+  border: 1px solid #ffd591;
+}
+.tag.own {
+  background: #f6ffed;
+  color: #389e0d;
+  border: 1px solid #b7eb8f;
+}
+</style>
