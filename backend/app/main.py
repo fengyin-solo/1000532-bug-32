@@ -5,14 +5,25 @@
 """
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.authz import authz
 from app.config import settings
 from app.routers import ROUTERS
 from app.store import store
 
-app = FastAPI(title="地质勘探数据管理平台", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # 启动时按采集顺序给无归属的存量水文观测点补数
+    authz.backfill_ownership()
+    yield
+
+
+app = FastAPI(title="地质勘探数据管理平台", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

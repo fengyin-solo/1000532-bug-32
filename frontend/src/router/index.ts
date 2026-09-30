@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import Dashboard from '@/views/Dashboard.vue'
+import { getToken } from '@/api/client'
+const Login = () => import('@/views/Login.vue')
 const Borehole = () => import('@/views/borehole/index.vue')
 const Core = () => import('@/views/core/index.vue')
 const Stratigraphy = () => import('@/views/stratigraphy/index.vue')
@@ -23,6 +25,7 @@ const Environmental = () => import('@/views/environmental/index.vue')
 const router = createRouter({
   history: createWebHistory(),
   routes: [
+    { path: '/login', name: 'login', component: Login, meta: { public: true } },
     { path: '/', name: 'dashboard', component: Dashboard },
     { path: '/borehole', name: 'borehole', component: Borehole },
     { path: '/core', name: 'core', component: Core },
@@ -43,6 +46,16 @@ const router = createRouter({
     { path: '/mineral', name: 'mineral', component: Mineral },
     { path: '/environmental', name: 'environmental', component: Environmental },
   ],
+})
+
+router.beforeEach((to) => {
+  if (!to.meta.public && !getToken()) {
+    return { name: 'login', query: to.fullPath !== '/' ? { redirect: to.fullPath } : undefined }
+  }
+  if (to.name === 'login' && getToken()) {
+    return { name: 'dashboard' }
+  }
+  return true
 })
 
 export default router
